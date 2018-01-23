@@ -137,6 +137,16 @@ cse:
 	_, err1 = io.WriteString(f3, lageryamlcontent)
 	_, err1 = io.WriteString(f4, testfilecontent)
 
+	fileData := map[string]interface{}{
+		filename1: nil,
+	}
+
+	archaius.AddFile(fileData, filename1)
+	assert.NotNil(t, fileData[filename1])
+	checkData := fileData[filename1].(map[interface{}]interface{})
+	assert.Equal(t, "CSE", checkData["APPLICATION_ID"])
+	assert.NotEqual(t, "CSE1", checkData["APPLICATION_ID"])
+
 	t.Log(os.Getenv("CHASSIS_HOME"))
 
 	err = schema.LoadSchema(fileutil.GetConfDir(), false)
@@ -190,7 +200,7 @@ cse:
 	archaius.UnmarshalConfig(&yamltestkey)
 	assert.Equal(t, 20, yamltestkey.HystrixConfig.FallbackProperties.Consumer.MaxConcurrentRequests)
 
-	err = archaius.AddFile(filename4)
+	err = archaius.AddFile(nil, filename4)
 	if err != nil {
 		t.Error("Failed to add new file into the archaius")
 	}

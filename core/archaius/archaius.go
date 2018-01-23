@@ -11,7 +11,7 @@ import (
 
 // Config is the struct of configuration files, and configuration factory
 type Config struct {
-	ConfigFiles   []string
+	ConfigFiles   map[string]interface{}
 	ConfigFactory goarchaius.ConfigurationFactory
 }
 
@@ -19,7 +19,11 @@ type Config struct {
 var DefaultConf *Config
 
 // NewConfig is gives the object of Config(it is having configuration files, and configuration factory)
-func NewConfig(essentialfiles, commonfiles []string) (*Config, error) {
+func NewConfig(essentialfiles, commonfiles map[string]interface{}) (*Config, error) {
+	var (
+		v interface{}
+		k string
+	)
 	// created config factory object
 	factory, err := goarchaius.NewConfigFactory()
 	if err != nil {
@@ -28,22 +32,24 @@ func NewConfig(essentialfiles, commonfiles []string) (*Config, error) {
 	factory.DeInit()
 	factory.Init()
 
-	files := make([]string, 0)
+	files := map[string]interface{}{}
 	// created file source object
 	fileSource := filesource.NewYamlConfigurationSource()
 	// adding all files with file source
-	for _, v := range essentialfiles {
-		if err := fileSource.AddFileSource(v, filesource.DefaultFilePriority); err != nil {
+	for k, v = range essentialfiles {
+		var value interface{}
+		if value, err = fileSource.AddFileSource(&v, k, filesource.DefaultFilePriority); err != nil {
 			lager.Logger.Errorf(err, "add file source error.")
 			return nil, err
 		}
-		files = append(files, v)
+		files[k] = value
 	}
-	for _, v := range commonfiles {
-		if err := fileSource.AddFileSource(v, filesource.DefaultFilePriority); err != nil {
+	for k, v = range commonfiles {
+		var value interface{}
+		if value, err = fileSource.AddFileSource(&v, k, filesource.DefaultFilePriority); err != nil {
 			lager.Logger.Infof("%v", err)
 		}
-		files = append(files, v)
+		files[k] = value
 	}
 
 	err = factory.AddSource(fileSource)
@@ -79,18 +85,18 @@ func (e EventListener) Event(event *core.Event) {
 
 // Init is to initialize the archaius
 func Init() error {
-	essentialfiles := []string{
-		fileutil.GlobalDefinition(),
-		fileutil.GetMicroserviceDesc(),
+	essentialfiles := map[string]interface{}{
+		fileutil.GlobalDefinition():    nil,
+		fileutil.GetMicroserviceDesc(): nil,
 	}
-	commonfiles := []string{
-		fileutil.HystrixDefinition(),
-		fileutil.GetLoadBalancing(),
-		fileutil.GetRateLimiting(),
-		fileutil.GetTLS(),
-		fileutil.GetMonitoring(),
-		fileutil.GetAuth(),
-		fileutil.GetTracing(),
+	commonfiles := map[string]interface{}{
+		fileutil.HystrixDefinition(): nil,
+		fileutil.GetLoadBalancing():  nil,
+		fileutil.GetRateLimiting():   nil,
+		fileutil.GetTLS():            nil,
+		fileutil.GetMonitoring():     nil,
+		fileutil.GetAuth():           nil,
+		fileutil.GetTracing():        nil,
 	}
 
 	lager.Logger.Infof("Essential Configuration Path: %v, Configuration Paths %v", essentialfiles, commonfiles)
@@ -186,8 +192,21 @@ func UnRegisterListener(listenerObj core.EventListener, key ...string) error {
 }
 
 // AddFile is for to add the configuration files into the configfactory at run time
-func AddFile(file string) error {
-	return filesource.NewYamlConfigurationSource().AddFileSource(file, filesource.DefaultFilePriority)
+func AddFile(data map[string]interface{}, file string) error {
+	if data == nil {
+		_, err := filesource.NewYamlConfigurationSource().AddFileSource(nil, file, filesource.DefaultFilePriority)
+		return err
+	}
+
+	for k, anyConfig := range data {
+		if k == file {
+			value, err := filesource.NewYamlConfigurationSource().AddFileSource(&anyConfig, file, filesource.DefaultFilePriority)
+			data[k] = value
+			return err
+		}
+	}
+
+	return nil
 }
 
 // AddKeyValue is for to add the configuration key, value pairs into the configfactory at run time
